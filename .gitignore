@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+firebase-service-account.json
+
+# Backend only; do not add admin-panel to git
+admin-panel/
+
+# Build artifacts
+dist/
+
+# Logs and misc
+*.log
+.DS_Store
