@@ -13,7 +13,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const googleSignIn = async (req, res, next) => {
   try {
-    const { idToken, referredBy, deviceToken } = req.body;
+    const { idToken, referredBy, deviceToken, deviceName, deviceModal, deviceUniquCode } = req.body;
 
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -39,6 +39,9 @@ const googleSignIn = async (req, res, next) => {
         referCode,
         leftGame: settings?.dailyGameLimit ?? 5,
         referredBy: null,
+        deviceName: deviceName || null,
+        deviceModal: deviceModal || null,
+        deviceUniquCode: deviceUniquCode || null,
       });
 
       if (referredBy) {
@@ -75,8 +78,24 @@ const googleSignIn = async (req, res, next) => {
       await user.save();
     }
 
-    if (deviceToken) {
+    let userUpdated = false;
+    if (deviceToken && user.deviceToken !== deviceToken) {
       user.deviceToken = deviceToken;
+      userUpdated = true;
+    }
+    if (deviceName && user.deviceName !== deviceName) {
+      user.deviceName = deviceName;
+      userUpdated = true;
+    }
+    if (deviceModal && user.deviceModal !== deviceModal) {
+      user.deviceModal = deviceModal;
+      userUpdated = true;
+    }
+    if (deviceUniquCode && user.deviceUniquCode !== deviceUniquCode) {
+      user.deviceUniquCode = deviceUniquCode;
+      userUpdated = true;
+    }
+    if (userUpdated) {
       await user.save();
     }
 

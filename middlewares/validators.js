@@ -4,6 +4,9 @@ const googleSignInValidation = [
   body('idToken').notEmpty().withMessage('Google ID token is required'),
   body('referredBy').optional().isString().trim(),
   body('deviceToken').optional().isString().trim(),
+  body('deviceName').optional().isString().trim(),
+  body('deviceModal').optional().isString().trim(),
+  body('deviceUniquCode').optional().isString().trim(),
 ];
 
 const adminLoginValidation = [
@@ -33,12 +36,36 @@ const settingsValidation = [
   body('monthlyThirdPrice').optional().isFloat({ min: 0.01 }).withMessage('Must be positive'),
   body('referAmount').optional().isFloat({ min: 0.01 }).withMessage('Must be positive'),
   body('dailyGameLimit').optional().isInt({ min: 1 }).withMessage('Must be at least 1'),
+  body('Homepageplaygameads').optional().isBoolean(),
+  body('homepagetestpracticeads').optional().isBoolean(),
+  body('Homepageplaygameadstype').optional().isIn(['interstitial', 'rewarded']),
+  body('homepagetestpracticetype').optional().isIn(['interstitial', 'rewarded']),
+  body('instagramLink').optional().isString().trim(),
 ];
 
 const notificationValidation = [
   body('title').notEmpty().trim().withMessage('Title is required'),
   body('description').notEmpty().trim().withMessage('Description is required'),
-  body('targetUser').optional().isMongoId().withMessage('Invalid target user ID'),
+  body('targetUser')
+    .optional()
+    .custom((value) => {
+      if (Array.isArray(value)) {
+        return value.every((id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id));
+      }
+      if (typeof value === 'string' && value.trim() !== '') {
+        return /^[0-9a-fA-F]{24}$/.test(value);
+      }
+      return true;
+    })
+    .withMessage('targetUser must be a valid Mongo ID or array of Mongo IDs'),
+];
+
+const rewardDistributionValidation = [
+  body('type').isIn(['daily', 'monthly']).withMessage('Type must be daily or monthly'),
+  body('date').optional().isISO8601().withMessage('Date must be a valid ISO8601 date string'),
+  body('firstCode').optional().isString().trim(),
+  body('secondCode').optional().isString().trim(),
+  body('thirdCode').optional().isString().trim(),
 ];
 
 const finalizeWinnersValidation = [
@@ -57,6 +84,20 @@ const mongoIdParam = [
   param('id').isMongoId().withMessage('Invalid ID'),
 ];
 
+const updateUserPointsValidation = [
+  body('todayGamePoints').optional().isInt({ min: 0 }).withMessage('Must be a non-negative integer'),
+  body('monthGamePoints').optional().isInt({ min: 0 }).withMessage('Must be a non-negative integer'),
+];
+
+const notifyUserWinValidation = [
+  body('title').notEmpty().trim().withMessage('Title is required'),
+  body('description').notEmpty().trim().withMessage('Description is required'),
+];
+
+const adminLeaderboardValidation = [
+  query('type').optional().isIn(['today', 'monthly']).withMessage('Type must be today or monthly'),
+];
+
 module.exports = {
   googleSignInValidation,
   adminLoginValidation,
@@ -68,4 +109,8 @@ module.exports = {
   scoreQueryValidation,
   winnersQueryValidation,
   mongoIdParam,
+  rewardDistributionValidation,
+  updateUserPointsValidation,
+  notifyUserWinValidation,
+  adminLeaderboardValidation,
 };

@@ -11,6 +11,10 @@ const {
   sendNotification,
   finalizeWinnersManual,
   getAdminWinners,
+  distributeRewards,
+  getAdminLeaderboard,
+  updateUserPoints,
+  notifyUserWin,
 } = require('../controllers/adminController');
 const {
   adminLoginValidation,
@@ -18,6 +22,10 @@ const {
   notificationValidation,
   finalizeWinnersValidation,
   mongoIdParam,
+  rewardDistributionValidation,
+  updateUserPointsValidation,
+  notifyUserWinValidation,
+  adminLeaderboardValidation,
 } = require('../middlewares/validators');
 const validate = require('../middlewares/validate');
 
@@ -36,5 +44,9 @@ router.put('/settings', settingsValidation, validate, updateSettings);
 router.post('/notification', notificationValidation, validate, sendNotification);
 router.post('/winners/finalize', finalizeWinnersValidation, validate, finalizeWinnersManual);
 router.get('/winners', getAdminWinners);
+router.post('/winners/distribute', rewardDistributionValidation, validate, distributeRewards);
+router.get('/leaderboard', adminLeaderboardValidation, validate, getAdminLeaderboard);
+router.put('/users/:id/points', mongoIdParam, updateUserPointsValidation, validate, updateUserPoints);
+router.post('/users/:id/notify-win', mongoIdParam, notifyUserWinValidation, validate, notifyUserWin);
 
 module.exports = router;

@@ -78,7 +78,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\",\n  \"referredBy\": \"{{referredBy}}\",\n  \"deviceToken\": \"{{deviceToken}}\"\n}",
+              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\",\n  \"referredBy\": \"{{referredBy}}\",\n  \"deviceToken\": \"{{deviceToken}}\",\n  \"deviceName\": \"Pixel 8\",\n  \"deviceModal\": \"Google Pixel\",\n  \"deviceUniquCode\": \"unique-device-uuid-123456\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -380,6 +380,38 @@
             "description": "Updates the logged-in user's FCM device token. Call on every app login/open."
           },
           "response": []
+        },
+        {
+          "name": "Dismiss User Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/alert/false",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "alert", "false"]
+            },
+            "description": "Dismiss/hide the homepage alert banner for this user by setting alert to false. If `userId` is omitted in the body, it defaults to the authenticated user from the token."
+          },
+          "response": []
         }
       ],
       "description": "User-facing endpoints. All require `Authorization: Bearer {{token}}`."
@@ -658,7 +690,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Personal Reward\",\n  \"description\": \"You have earned a special bonus! Check your rewards.\",\n  \"targetUser\": \"{{userId}}\"\n}",
+              "raw": "{\n  \"title\": \"Personal Reward\",\n  \"description\": \"You have earned a special bonus! Check your rewards.\",\n  \"targetUser\": [\"{{userId}}\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -754,6 +786,128 @@
               "path": ["admin", "winners"]
             },
             "description": "View today's daily winners and this month's monthly winners (admin view with full user details)."
+          },
+          "response": []
+        },
+        {
+          "name": "Distribute Rewards (Amazon Vouchers)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"daily\",\n  \"date\": \"2026-07-13\",\n  \"firstCode\": \"AMZN-1ST-PLACE-CODE-XYZ\",\n  \"secondCode\": \"AMZN-2ND-PLACE-CODE-ABC\",\n  \"thirdCode\": \"AMZN-3RD-PLACE-CODE-DEF\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/winners/distribute",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "winners", "distribute"]
+            },
+            "description": "Distribute Amazon voucher codes to 1st, 2nd, and 3rd place winners of a daily or monthly draw. If winners aren't finalized yet for the specified date range, finalization runs automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/leaderboard?type=today",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "leaderboard"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "today",
+                  "description": "today | monthly"
+                }
+              ]
+            },
+            "description": "Retrieve the leaderboard on the admin side, sorted by points descending, including detailed user and device information."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Points",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"todayGamePoints\": 500,\n  \"monthGamePoints\": 2500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/points",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}", "points"]
+            },
+            "description": "Directly edit a user's today and/or monthly game points. This changes their leaderboard ranking immediately."
+          },
+          "response": []
+        },
+        {
+          "name": "Notify User Win",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"🎉 Congratulations!\",\n  \"description\": \"You won the daily contest! Your prize will be delivered shortly.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}/notify-win",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "{{userId}}", "notify-win"]
+            },
+            "description": "Send a custom winning or prize delivery notification to a specific user."
           },
           "response": []
         }

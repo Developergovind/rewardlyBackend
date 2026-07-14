@@ -13,6 +13,11 @@ const settingsSchema = new mongoose.Schema(
     monthlyThirdPrice: { type: Number, default: 100 },
     referAmount: { type: Number, default: 50 },
     dailyGameLimit: { type: Number, default: 5 },
+    Homepageplaygameads: { type: Boolean, default: false },
+    homepagetestpracticeads: { type: Boolean, default: false },
+    Homepageplaygameadstype: { type: String, enum: ['interstitial', 'rewarded'], default: 'interstitial' },
+    homepagetestpracticetype: { type: String, enum: ['interstitial', 'rewarded'], default: 'interstitial' },
+    instagramLink: { type: String, default: '' },
   },
   { timestamps: true }
 );

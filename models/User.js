@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema(
     referCount: { type: Number, default: 0 },
     referAmount: { type: Number, default: 0 },
     isBlocked: { type: Boolean, default: false },
+    deviceName: { type: String, default: null },
+    deviceModal: { type: String, default: null },
+    deviceUniquCode: { type: String, default: null },
+    alert: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

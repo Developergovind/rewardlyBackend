@@ -21,15 +21,20 @@ const getHome = async (req, res, next) => {
       refercode: user.referCode,
       refercount: user.referCount,
       referamount: user.referAmount,
-      alert: settings?.alert ?? false,
+      alert: (settings?.alert && user.alert) ?? false,
       alertTitle: settings?.alertTitle ?? '',
       alertDescription: settings?.alertDescription ?? '',
       dailyfirstprice: settings?.dailyFirstPrice ?? 0,
       dailysecondprice: settings?.dailySecondPrice ?? 0,
       dailythirdprice: settings?.dailyThirdPrice ?? 0,
       monthlyfirstprice: settings?.monthlyFirstPrice ?? 0,
-      monthlysecondprice: settings?.monthlySecondPrice ?? 0,
+      monthlysecondprice: settings?.monthlysecondPrice ?? 0,
       monthlythirdprice: settings?.monthlyThirdPrice ?? 0,
+      Homepageplaygameads: settings?.Homepageplaygameads ?? false,
+      homepagetestpracticeads: settings?.homepagetestpracticeads ?? false,
+      Homepageplaygameadstype: settings?.Homepageplaygameadstype ?? 'interstitial',
+      homepagetestpracticetype: settings?.homepagetestpracticetype ?? 'interstitial',
+      instagramLink: settings?.instagramLink ?? '',
     });
   } catch (err) {
     next(err);
@@ -88,16 +93,39 @@ const getRewardHistory = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const skip = (page - 1) * limit;
 
-    const [rewards, total] = await Promise.all([
+    const [rewards, total, winnersWithCode] = await Promise.all([
       RewardHistory.find({ userId: req.user._id })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
       RewardHistory.countDocuments({ userId: req.user._id }),
+      Winner.find({ userId: req.user._id, amazonCode: { $ne: null, $ne: '' } }).sort({ date: -1 }),
     ]);
+
+    const getRankSuffix = (rank) => {
+      if (rank === 1) return '1st';
+      if (rank === 2) return '2nd';
+      if (rank === 3) return '3rd';
+      return `${rank}th`;
+    };
+
+    const getMonthName = (dateVal) => {
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const d = new Date(dateVal);
+      return `${d.getDate()} ${months[d.getMonth()]}`;
+    };
+
+    const vouchers = (winnersWithCode || []).map(w => ({
+      message: `🎉 **Congratulations!**\nYou are the **${getRankSuffix(w.rank)} Winner** for **${getMonthName(w.date)}**! 🏆\nYou have won a **₹${w.prizeAmount} Amazon Gift Card**.\nYour Amazon Gift Card Code:\n**${w.amazonCode}**\nThank you for participating, and enjoy your reward! 🎁`,
+      code: w.amazonCode
+    }));
 
     res.json({
       success: true,
+      vouchers,
       data: rewards,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
@@ -138,10 +166,20 @@ const getNotifications = async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const skip = (page - 1) * limit;
-    const userId = req.user._id;
+    const userCreatedAt = req.user.createdAt;
 
     const filter = {
-      $or: [{ targetUser: null }, { targetUser: userId }],
+      $or: [
+        {
+          createdAt: { $gte: userCreatedAt },
+          $or: [
+            { targetUser: { $exists: false } },
+            { targetUser: null },
+            { targetUser: { $size: 0 } },
+          ],
+        },
+        { targetUser: userId },
+      ],
     };
 
     const [notifications, total] = await Promise.all([
@@ -175,9 +213,15 @@ const markNotificationRead = async (req, res, next) => {
     }
 
     const userId = req.user._id;
+    const userCreatedAt = req.user.createdAt;
+
+    const isBroadcast =
+      !notification.targetUser ||
+      notification.targetUser.length === 0;
+
     const isRelevant =
-      notification.targetUser === null ||
-      notification.targetUser?.toString() === userId.toString();
+      (isBroadcast && notification.createdAt >= userCreatedAt) ||
+      (!isBroadcast && notification.targetUser.some((id) => id.toString() === userId.toString()));
 
     if (!isRelevant) {
       throw new ApiError(403, 'Notification not accessible');
@@ -245,6 +289,21 @@ const updateDeviceToken = async (req, res, next) => {
   }
 };
 
+const dismissAlert = async (req, res, next) => {
+  try {
+    const userId = req.body.userId || req.user._id;
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    user.alert = false;
+    await user.save();
+    res.json({ success: true, message: 'Alert turned off for this user' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getHome,
   getLeaderboard,
@@ -254,4 +313,5 @@ module.exports = {
   markNotificationRead,
   playGame,
   updateDeviceToken,
+  dismissAlert,
 };

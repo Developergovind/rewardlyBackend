@@ -7,6 +7,7 @@ const winnerSchema = new mongoose.Schema(
     rank: { type: Number, required: true, min: 1, max: 3 },
     prizeAmount: { type: Number, required: true },
     date: { type: Date, required: true, index: true },
+    amazonCode: { type: String, default: null },
   },
   { timestamps: true }
 );

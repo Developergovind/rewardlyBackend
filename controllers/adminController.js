@@ -163,6 +163,7 @@ const getUsers = async (req, res, next) => {
         referAmount: u.referAmount,
         isBlocked: u.isBlocked,
         createdAt: u.createdAt,
+        photo: u.profilePic || '',
       })),
       total,
       pagination: { page, limit, pages: Math.ceil(total / limit) },
@@ -243,6 +244,11 @@ const updateSettings = async (req, res, next) => {
       'monthlyThirdPrice',
       'referAmount',
       'dailyGameLimit',
+      'Homepageplaygameads',
+      'homepagetestpracticeads',
+      'Homepageplaygameadstype',
+      'homepagetestpracticetype',
+      'instagramLink',
     ];
 
     fields.forEach((field) => {
@@ -252,6 +258,11 @@ const updateSettings = async (req, res, next) => {
     });
 
     await settings.save();
+
+    if (req.body.alert === true) {
+      await User.updateMany({}, { $set: { alert: true } });
+    }
+
     res.json({ success: true, data: settings, message: 'Settings updated' });
   } catch (err) {
     next(err);
@@ -262,16 +273,39 @@ const sendNotification = async (req, res, next) => {
   try {
     const { title, description, targetUser } = req.body;
 
+    let targetUsers = [];
+    if (targetUser) {
+      if (Array.isArray(targetUser)) {
+        targetUsers = targetUser.filter(Boolean);
+      } else if (typeof targetUser === 'string' && targetUser.trim() !== '') {
+        targetUsers = [targetUser.trim()];
+      }
+    }
+
     const notification = await Notification.create({
       title,
       description,
-      targetUser: targetUser || null,
+      targetUser: targetUsers.length > 0 ? targetUsers : null,
     });
 
-    let pushResult;
-    if (targetUser) {
-      pushResult = await sendPushToUser(targetUser, title, description, {
-        notificationId: notification._id.toString(),
+    let pushResult = { successCount: 0, failureCount: 0 };
+    if (targetUsers.length > 0) {
+      const pushPromises = targetUsers.map(async (userId) => {
+        try {
+          return await sendPushToUser(userId, title, description, {
+            notificationId: notification._id.toString(),
+          });
+        } catch (err) {
+          console.error(`Failed to send push to user ${userId}:`, err.message);
+          return { successCount: 0, failureCount: 1 };
+        }
+      });
+      const results = await Promise.all(pushPromises);
+      results.forEach((res) => {
+        if (res) {
+          pushResult.successCount += res.successCount || 0;
+          pushResult.failureCount += res.failureCount || 0;
+        }
       });
     } else {
       pushResult = await sendPushToAllUsers(title, description, {
@@ -281,7 +315,7 @@ const sendNotification = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: targetUser ? 'Notification sent to user' : 'Broadcast notification sent',
+      message: targetUsers.length > 0 ? 'Notification sent to target user(s)' : 'Broadcast notification sent',
       notification,
       pushResult,
     });
@@ -298,15 +332,9 @@ const finalizeWinnersManual = async (req, res, next) => {
 
     const result = await finalizeWinners(type, dateRange);
 
-    if (type === 'daily') {
-      await resetDailyStats();
-    } else {
-      await resetMonthlyStats();
-    }
-
     res.json({
       success: true,
-      message: `${type} winners finalized`,
+      message: `${type} winners finalized (active user points preserved)`,
       ...result,
     });
   } catch (err) {
@@ -338,6 +366,177 @@ const getAdminWinners = async (req, res, next) => {
   }
 };
 
+const distributeRewards = async (req, res, next) => {
+  try {
+    const { type, date, firstCode, secondCode, thirdCode } = req.body;
+
+    const dateHelpers = require('../utils/dateHelpers');
+    let dateRange;
+    if (date) {
+      const d = new Date(date);
+      const start = dateHelpers.getISTStartOfDay(d);
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      dateRange = { start, end };
+    } else {
+      dateRange = type === 'monthly' ? dateHelpers.getMonthRangeIST() : dateHelpers.getTodayRangeIST();
+    }
+
+    let winners = await Winner.find({
+      type,
+      date: { $gte: dateRange.start, $lt: dateRange.end },
+    }).sort({ rank: 1 });
+
+    if (winners.length === 0) {
+      await finalizeWinners(type, dateRange);
+      winners = await Winner.find({
+        type,
+        date: { $gte: dateRange.start, $lt: dateRange.end },
+      }).sort({ rank: 1 });
+    }
+
+    if (winners.length === 0) {
+      throw new ApiError(400, `No eligible users found to finalize winners for this date range`);
+    }
+
+    const codes = [firstCode, secondCode, thirdCode];
+    const updatedWinners = [];
+
+    const getRankSuffix = (rank) => {
+      if (rank === 1) return '1st';
+      if (rank === 2) return '2nd';
+      if (rank === 3) return '3rd';
+      return `${rank}th`;
+    };
+
+    const getMonthName = (dateVal) => {
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const d = new Date(dateVal);
+      return `${d.getDate()} ${months[d.getMonth()]}`;
+    };
+
+    for (let i = 0; i < winners.length; i++) {
+      const winner = winners[i];
+      const code = codes[winner.rank - 1];
+      if (code) {
+        winner.amazonCode = code;
+        await winner.save();
+
+        const message = `🎉 Congratulations! Your Amazon Voucher for ranking ${getRankSuffix(winner.rank)} on ${getMonthName(winner.date)} is here: ${code}`;
+        await sendPushToUser(
+          winner.userId,
+          '🎉 Amazon Voucher Delivered!',
+          message
+        );
+
+        updatedWinners.push(winner);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `${type} rewards distributed successfully`,
+      winners: updatedWinners,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getAdminLeaderboard = async (req, res, next) => {
+  try {
+    const { type = 'today' } = req.query;
+    const pointsField = type === 'monthly' ? 'monthGamePoints' : 'todayGamePoints';
+
+    const users = await User.find({ isBlocked: false })
+      .sort({ [pointsField]: -1, createdAt: 1 })
+      .select('name email profilePic todayGamePoints monthGamePoints deviceName deviceModal deviceUniquCode');
+
+    const leaderboard = users.map((u, index) => ({
+      userId: u._id,
+      name: u.name,
+      email: u.email,
+      profilePic: u.profilePic || '',
+      points: u[pointsField],
+      rank: index + 1,
+      deviceName: u.deviceName,
+      deviceModal: u.deviceModal,
+      deviceUniquCode: u.deviceUniquCode,
+    }));
+
+    res.json({
+      success: true,
+      type,
+      leaderboard,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateUserPoints = async (req, res, next) => {
+  try {
+    const { todayGamePoints, monthGamePoints } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    if (todayGamePoints !== undefined) {
+      user.todayGamePoints = Number(todayGamePoints);
+    }
+    if (monthGamePoints !== undefined) {
+      user.monthGamePoints = Number(monthGamePoints);
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User points updated successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        todayGamePoints: user.todayGamePoints,
+        monthGamePoints: user.monthGamePoints,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const notifyUserWin = async (req, res, next) => {
+  try {
+    const { title, description } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    const notification = await Notification.create({
+      title,
+      description,
+      targetUser: [user._id],
+    });
+
+    const pushResult = await sendPushToUser(user._id, title, description, {
+      notificationId: notification._id.toString(),
+    });
+
+    res.json({
+      success: true,
+      message: 'Win notification sent successfully',
+      notification,
+      pushResult,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   adminLogin,
   getDashboard,
@@ -349,4 +548,8 @@ module.exports = {
   sendNotification,
   finalizeWinnersManual,
   getAdminWinners,
+  distributeRewards,
+  getAdminLeaderboard,
+  updateUserPoints,
+  notifyUserWin,
 };

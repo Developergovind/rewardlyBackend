@@ -9,6 +9,7 @@ const {
   markNotificationRead,
   playGame,
   updateDeviceToken,
+  dismissAlert,
 } = require('../controllers/userController');
 const {
   playGameValidation,
@@ -31,5 +32,6 @@ router.get('/notifications', getNotifications);
 router.post('/notifications/:id/read', mongoIdParam, validate, markNotificationRead);
 router.post('/game/play', playGameValidation, validate, playGame);
 router.put('/user/device-token', deviceTokenValidation, validate, updateDeviceToken);
+router.post('/user/alert/false', dismissAlert);
 
 module.exports = router;
