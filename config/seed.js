@@ -21,8 +21,14 @@ const seedOnStartup = async () => {
 
   const existingSettings = await Settings.findOne();
   if (!existingSettings) {
-    await Settings.create({});
+    await Settings.create({
+      instagramLink: 'https://www.instagram.com/rewardlyapps?igsh=M2s3MnU0ZWpyY3I1'
+    });
     console.log('Default settings document created');
+  } else {
+    existingSettings.instagramLink = 'https://www.instagram.com/rewardlyapps?igsh=M2s3MnU0ZWpyY3I1';
+    await existingSettings.save();
+    console.log('Settings instagramLink updated to rewardlyapps');
   }
 };
 

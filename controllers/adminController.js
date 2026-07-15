@@ -35,7 +35,8 @@ const adminLogin = async (req, res, next) => {
     res.json({
       success: true,
       token,
-      admin: { id: admin._id, name: admin.name, email: admin.email },
+      userType: 'admin',
+      admin: { id: admin._id, name: admin.name, email: admin.email, userType: 'admin' },
     });
   } catch (err) {
     next(err);
@@ -243,7 +244,6 @@ const updateSettings = async (req, res, next) => {
       'monthlySecondPrice',
       'monthlyThirdPrice',
       'referAmount',
-      'dailyGameLimit',
       'Homepageplaygameads',
       'homepagetestpracticeads',
       'Homepageplaygameadstype',
@@ -324,42 +324,30 @@ const sendNotification = async (req, res, next) => {
   }
 };
 
-const finalizeWinnersManual = async (req, res, next) => {
-  try {
-    const { type = 'daily' } = req.body;
-
-    const dateRange = type === 'monthly' ? getMonthRangeIST() : getTodayRangeIST();
-
-    const result = await finalizeWinners(type, dateRange);
-
-    res.json({
-      success: true,
-      message: `${type} winners finalized (active user points preserved)`,
-      ...result,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
 
 const getAdminWinners = async (req, res, next) => {
   try {
-    const todayRange = getTodayRangeIST();
-    const monthRange = getMonthRangeIST();
+    const { type } = req.query;
+    const filter = {};
+    if (type) {
+      filter.type = type;
+    }
 
-    const [dailyWinners, monthlyWinners] = await Promise.all([
-      Winner.find({ type: 'daily', date: { $gte: todayRange.start, $lt: todayRange.end } })
-        .sort({ rank: 1 })
-        .populate('userId', 'name email profilePic'),
-      Winner.find({ type: 'monthly', date: { $gte: monthRange.start, $lt: monthRange.end } })
-        .sort({ rank: 1 })
-        .populate('userId', 'name email profilePic'),
-    ]);
+    const winners = await Winner.find(filter)
+      .sort({ date: -1, rank: 1 })
+      .populate('userId', 'name email profilePic');
+
+    const formattedWinners = winners.map((w) => {
+      const obj = w.toObject ? w.toObject() : w;
+      return {
+        ...obj,
+        rewardDistribute: obj.rewardDistribute ?? false,
+      };
+    });
 
     res.json({
       success: true,
-      daily: dailyWinners,
-      monthly: monthlyWinners,
+      data: formattedWinners,
     });
   } catch (err) {
     next(err);
@@ -368,37 +356,43 @@ const getAdminWinners = async (req, res, next) => {
 
 const distributeRewards = async (req, res, next) => {
   try {
-    const { type, date, firstCode, secondCode, thirdCode } = req.body;
+    const {
+      type,
+      date,
+      firstCode,
+      secondCode,
+      thirdCode,
+      firstUserId,
+      secondUserId,
+      thirdUserId,
+    } = req.body;
+
+    if (!type || !date) {
+      throw new ApiError(400, 'Type and date are required');
+    }
 
     const dateHelpers = require('../utils/dateHelpers');
-    let dateRange;
-    if (date) {
-      const d = new Date(date);
-      const start = dateHelpers.getISTStartOfDay(d);
-      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-      dateRange = { start, end };
-    } else {
-      dateRange = type === 'monthly' ? dateHelpers.getMonthRangeIST() : dateHelpers.getTodayRangeIST();
+    const d = new Date(date);
+    const start = dateHelpers.getISTStartOfDay(d);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const dateRange = { start, end };
+
+    const settings = await Settings.findOne();
+    if (!settings) {
+      throw new ApiError(500, 'Settings not found');
     }
 
-    let winners = await Winner.find({
-      type,
-      date: { $gte: dateRange.start, $lt: dateRange.end },
-    }).sort({ rank: 1 });
+    const prizeFields = {
+      daily: ['dailyFirstPrice', 'dailySecondPrice', 'dailyThirdPrice'],
+      monthly: ['monthlyFirstPrice', 'monthlySecondPrice', 'monthlyThirdPrice'],
+    }[type];
 
-    if (winners.length === 0) {
-      await finalizeWinners(type, dateRange);
-      winners = await Winner.find({
-        type,
-        date: { $gte: dateRange.start, $lt: dateRange.end },
-      }).sort({ rank: 1 });
-    }
+    const distributionData = [
+      { userId: firstUserId, code: firstCode, rank: 1, prizeAmount: settings[prizeFields[0]] },
+      { userId: secondUserId, code: secondCode, rank: 2, prizeAmount: settings[prizeFields[1]] },
+      { userId: thirdUserId, code: thirdCode, rank: 3, prizeAmount: settings[prizeFields[2]] },
+    ];
 
-    if (winners.length === 0) {
-      throw new ApiError(400, `No eligible users found to finalize winners for this date range`);
-    }
-
-    const codes = [firstCode, secondCode, thirdCode];
     const updatedWinners = [];
 
     const getRankSuffix = (rank) => {
@@ -413,23 +407,66 @@ const distributeRewards = async (req, res, next) => {
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
-      const d = new Date(dateVal);
-      return `${d.getDate()} ${months[d.getMonth()]}`;
+      const dateObj = new Date(dateVal);
+      return `${dateObj.getDate()} ${months[dateObj.getMonth()]}`;
     };
 
-    for (let i = 0; i < winners.length; i++) {
-      const winner = winners[i];
-      const code = codes[winner.rank - 1];
-      if (code) {
-        winner.amazonCode = code;
-        await winner.save();
+    for (const item of distributionData) {
+      if (item.userId) {
+        // Find or create Winner document
+        let winner = await Winner.findOne({
+          type,
+          date: dateRange.start,
+          rank: item.rank,
+        });
 
-        const message = `🎉 Congratulations! Your Amazon Voucher for ranking ${getRankSuffix(winner.rank)} on ${getMonthName(winner.date)} is here: ${code}`;
-        await sendPushToUser(
-          winner.userId,
-          '🎉 Amazon Voucher Delivered!',
-          message
-        );
+        if (winner) {
+          winner.userId = item.userId;
+          winner.amazonCode = item.code || '';
+          winner.rewardDistribute = true;
+          winner.prizeAmount = item.prizeAmount;
+          await winner.save();
+        } else {
+          winner = await Winner.create({
+            userId: item.userId,
+            type,
+            rank: item.rank,
+            prizeAmount: item.prizeAmount,
+            date: dateRange.start,
+            amazonCode: item.code || '',
+            rewardDistribute: true,
+          });
+        }
+
+        // Add to RewardHistory
+        await RewardHistory.create({
+          userId: item.userId,
+          rewardType: type === 'daily' ? 'daily_winner' : 'monthly_winner',
+          amount: item.prizeAmount,
+          description: `${type.charAt(0).toUpperCase() + type.slice(1)} winner — rank ${item.rank}`,
+        });
+
+        // Send Notification in database
+        const message = `🎉 Congratulations! Your Amazon Voucher for ranking ${getRankSuffix(item.rank)} on ${getMonthName(winner.date)} is here: ${item.code || ''}`;
+
+        const notification = await Notification.create({
+          title: '🎉 Amazon Voucher Delivered!',
+          description: message,
+          targetUser: [item.userId],
+        });
+
+        try {
+          await sendPushToUser(
+            item.userId,
+            '🎉 Amazon Voucher Delivered!',
+            message,
+            {
+              notificationId: notification._id.toString(),
+            }
+          );
+        } catch (err) {
+          console.error(`Failed to send push notification to user ${item.userId}:`, err.message);
+        }
 
         updatedWinners.push(winner);
       }
@@ -546,7 +583,6 @@ module.exports = {
   getSettings,
   updateSettings,
   sendNotification,
-  finalizeWinnersManual,
   getAdminWinners,
   distributeRewards,
   getAdminLeaderboard,

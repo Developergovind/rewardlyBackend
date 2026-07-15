@@ -28,7 +28,7 @@ const getHome = async (req, res, next) => {
       dailysecondprice: settings?.dailySecondPrice ?? 0,
       dailythirdprice: settings?.dailyThirdPrice ?? 0,
       monthlyfirstprice: settings?.monthlyFirstPrice ?? 0,
-      monthlysecondprice: settings?.monthlysecondPrice ?? 0,
+      monthlysecondprice: settings?.monthlySecondPrice ?? 0,
       monthlythirdprice: settings?.monthlyThirdPrice ?? 0,
       Homepageplaygameads: settings?.Homepageplaygameads ?? false,
       homepagetestpracticeads: settings?.homepagetestpracticeads ?? false,
@@ -167,6 +167,7 @@ const getNotifications = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const skip = (page - 1) * limit;
     const userCreatedAt = req.user.createdAt;
+    const userId = req.user._id;
 
     const filter = {
       $or: [

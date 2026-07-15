@@ -35,7 +35,6 @@ const settingsValidation = [
   body('monthlySecondPrice').optional().isFloat({ min: 0.01 }).withMessage('Must be positive'),
   body('monthlyThirdPrice').optional().isFloat({ min: 0.01 }).withMessage('Must be positive'),
   body('referAmount').optional().isFloat({ min: 0.01 }).withMessage('Must be positive'),
-  body('dailyGameLimit').optional().isInt({ min: 1 }).withMessage('Must be at least 1'),
   body('Homepageplaygameads').optional().isBoolean(),
   body('homepagetestpracticeads').optional().isBoolean(),
   body('Homepageplaygameadstype').optional().isIn(['interstitial', 'rewarded']),
@@ -62,14 +61,13 @@ const notificationValidation = [
 
 const rewardDistributionValidation = [
   body('type').isIn(['daily', 'monthly']).withMessage('Type must be daily or monthly'),
-  body('date').optional().isISO8601().withMessage('Date must be a valid ISO8601 date string'),
+  body('date').notEmpty().withMessage('Date is required').isISO8601().withMessage('Date must be a valid ISO8601 date string'),
   body('firstCode').optional().isString().trim(),
   body('secondCode').optional().isString().trim(),
   body('thirdCode').optional().isString().trim(),
-];
-
-const finalizeWinnersValidation = [
-  body('type').optional().isIn(['daily', 'monthly']).withMessage('Type must be daily or monthly'),
+  body('firstUserId').optional().isMongoId().withMessage('firstUserId must be a valid Mongo ID'),
+  body('secondUserId').optional().isMongoId().withMessage('secondUserId must be a valid Mongo ID'),
+  body('thirdUserId').optional().isMongoId().withMessage('thirdUserId must be a valid Mongo ID'),
 ];
 
 const scoreQueryValidation = [
@@ -105,7 +103,6 @@ module.exports = {
   deviceTokenValidation,
   settingsValidation,
   notificationValidation,
-  finalizeWinnersValidation,
   scoreQueryValidation,
   winnersQueryValidation,
   mongoIdParam,

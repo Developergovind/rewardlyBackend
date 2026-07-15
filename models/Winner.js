@@ -8,6 +8,7 @@ const winnerSchema = new mongoose.Schema(
     prizeAmount: { type: Number, required: true },
     date: { type: Date, required: true, index: true },
     amazonCode: { type: String, default: null },
+    rewardDistribute: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

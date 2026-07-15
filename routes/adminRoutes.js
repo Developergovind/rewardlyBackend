@@ -9,7 +9,6 @@ const {
   getSettings,
   updateSettings,
   sendNotification,
-  finalizeWinnersManual,
   getAdminWinners,
   distributeRewards,
   getAdminLeaderboard,
@@ -20,7 +19,6 @@ const {
   adminLoginValidation,
   settingsValidation,
   notificationValidation,
-  finalizeWinnersValidation,
   mongoIdParam,
   rewardDistributionValidation,
   updateUserPointsValidation,
@@ -42,7 +40,6 @@ router.put('/users/:id/block', mongoIdParam, validate, toggleBlockUser);
 router.get('/settings', getSettings);
 router.put('/settings', settingsValidation, validate, updateSettings);
 router.post('/notification', notificationValidation, validate, sendNotification);
-router.post('/winners/finalize', finalizeWinnersValidation, validate, finalizeWinnersManual);
 router.get('/winners', getAdminWinners);
 router.post('/winners/distribute', rewardDistributionValidation, validate, distributeRewards);
 router.get('/leaderboard', adminLeaderboardValidation, validate, getAdminLeaderboard);

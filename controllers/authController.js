@@ -104,6 +104,7 @@ const googleSignIn = async (req, res, next) => {
     res.json({
       success: true,
       token,
+      userType: 'user',
       user: {
         id: user._id,
         name: user.name,
@@ -111,6 +112,7 @@ const googleSignIn = async (req, res, next) => {
         profilePic: user.profilePic,
         referCode: user.referCode,
         isNewUser,
+        userType: 'user',
       },
     });
   } catch (err) {
