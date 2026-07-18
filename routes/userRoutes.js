@@ -10,6 +10,7 @@ const {
   playGame,
   updateDeviceToken,
   dismissAlert,
+  redeemCode,
 } = require('../controllers/userController');
 const {
   playGameValidation,
@@ -17,6 +18,7 @@ const {
   scoreQueryValidation,
   winnersQueryValidation,
   mongoIdParam,
+  redeemCodeValidation,
 } = require('../middlewares/validators');
 const validate = require('../middlewares/validate');
 
@@ -33,5 +35,7 @@ router.post('/notifications/:id/read', mongoIdParam, validate, markNotificationR
 router.post('/game/play', playGameValidation, validate, playGame);
 router.put('/user/device-token', deviceTokenValidation, validate, updateDeviceToken);
 router.post('/user/alert/false', dismissAlert);
+router.post('/user/redeem', redeemCodeValidation, validate, redeemCode);
+router.post('/user/redeemcode', redeemCodeValidation, validate, redeemCode);
 
 module.exports = router;

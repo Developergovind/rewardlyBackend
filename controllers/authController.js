@@ -45,9 +45,11 @@ const googleSignIn = async (req, res, next) => {
       });
 
       if (referredBy) {
-        const referrer = await User.findOne({ referCode: referredBy.trim() });
+        const referrer = await User.findOne({
+          referCode: { $regex: new RegExp(`^${referredBy.trim()}$`, 'i') }
+        });
         if (referrer && referrer.email !== email) {
-          user.referredBy = referredBy.trim();
+          user.referredBy = referrer.referCode;
           const referPoints = settings?.referAmount ?? 50;
 
           referrer.referCount += 1;
@@ -104,7 +106,7 @@ const googleSignIn = async (req, res, next) => {
     res.json({
       success: true,
       token,
-      userType: 'user',
+      userType: user.userType || 'user',
       user: {
         id: user._id,
         name: user.name,
@@ -112,7 +114,7 @@ const googleSignIn = async (req, res, next) => {
         profilePic: user.profilePic,
         referCode: user.referCode,
         isNewUser,
-        userType: 'user',
+        userType: user.userType || 'user',
       },
     });
   } catch (err) {

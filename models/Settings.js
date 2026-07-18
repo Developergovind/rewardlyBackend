@@ -18,6 +18,7 @@ const settingsSchema = new mongoose.Schema(
     Homepageplaygameadstype: { type: String, enum: ['interstitial', 'rewarded'], default: 'interstitial' },
     homepagetestpracticetype: { type: String, enum: ['interstitial', 'rewarded'], default: 'interstitial' },
     instagramLink: { type: String, default: 'https://www.instagram.com/rewardlyapps?igsh=M2s3MnU0ZWpyY3I1' },
+    playGameTime: { type: Number, default: 60 },
   },
   { timestamps: true }
 );

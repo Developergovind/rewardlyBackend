@@ -35,6 +35,10 @@ const getHome = async (req, res, next) => {
       Homepageplaygameadstype: settings?.Homepageplaygameadstype ?? 'interstitial',
       homepagetestpracticetype: settings?.homepagetestpracticetype ?? 'interstitial',
       instagramLink: settings?.instagramLink ?? '',
+      playgametime: settings?.playGameTime ?? 60,
+      playGameTime: settings?.playGameTime ?? 60,
+      redeemcode: user.redeemCodeUsed ?? false,
+      redeemCode: user.redeemCodeUsed ?? false,
     });
   } catch (err) {
     next(err);
@@ -305,6 +309,84 @@ const dismissAlert = async (req, res, next) => {
   }
 };
 
+const redeemCode = async (req, res, next) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      throw new ApiError(400, 'Redeem code is required');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    if (user.redeemCodeUsed) {
+      throw new ApiError(400, 'You have already redeemed a code');
+    }
+
+    if (user.referCode.trim().toLowerCase() === code.trim().toLowerCase()) {
+      throw new ApiError(400, 'You cannot redeem your own code');
+    }
+
+    const owner = await User.findOne({
+      referCode: { $regex: new RegExp(`^${code.trim()}$`, 'i') }
+    });
+
+    if (!owner) {
+      throw new ApiError(404, 'Invalid redeem code');
+    }
+
+    const settings = await Settings.findOne();
+    const pointsToGive = settings?.referAmount ?? 50;
+
+    // Update the owner's points and refer count
+    owner.referCount += 1;
+    owner.referAmount += pointsToGive;
+    await owner.save();
+
+    // Update the current user
+    user.redeemCodeUsed = true;
+    await user.save();
+
+    // Create reward history for the owner
+    await RewardHistory.create({
+      userId: owner._id,
+      rewardType: 'referral_bonus',
+      amount: pointsToGive,
+      description: `Referral bonus from redeem code used by ${user.name || user.email}`,
+    });
+
+    // Create notification for the owner
+    await Notification.create({
+      title: 'Referral Bonus!',
+      description: `You earned ${pointsToGive} points because ${user.name || 'a user'} redeemed your code!`,
+      targetUser: owner._id,
+    });
+
+    // Send push notification to owner
+    const { sendPushToUser } = require('../utils/firebase');
+    try {
+      await sendPushToUser(
+        owner._id,
+        'Referral Bonus!',
+        `You earned ${pointsToGive} points because ${user.name || 'a user'} redeemed your code!`
+      );
+    } catch (err) {
+      console.error(`Failed to send push to owner ${owner._id}:`, err.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Redeem code applied successfully',
+      redeemcode: true,
+      redeemCode: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getHome,
   getLeaderboard,
@@ -315,4 +397,5 @@ module.exports = {
   playGame,
   updateDeviceToken,
   dismissAlert,
+  redeemCode,
 };

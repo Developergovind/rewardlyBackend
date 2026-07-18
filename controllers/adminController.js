@@ -249,6 +249,7 @@ const updateSettings = async (req, res, next) => {
       'Homepageplaygameadstype',
       'homepagetestpracticetype',
       'instagramLink',
+      'playGameTime',
     ];
 
     fields.forEach((field) => {
@@ -412,23 +413,25 @@ const distributeRewards = async (req, res, next) => {
     };
 
     for (const item of distributionData) {
-      if (item.userId) {
-        // Find or create Winner document
-        let winner = await Winner.findOne({
-          type,
-          date: dateRange.start,
-          rank: item.rank,
-        });
+      // Find Winner document
+      let winner = await Winner.findOne({
+        type,
+        date: dateRange.start,
+        rank: item.rank,
+      });
 
+      const targetUserId = item.userId || winner?.userId;
+
+      if (targetUserId) {
         if (winner) {
-          winner.userId = item.userId;
+          winner.userId = targetUserId;
           winner.amazonCode = item.code || '';
           winner.rewardDistribute = true;
           winner.prizeAmount = item.prizeAmount;
           await winner.save();
         } else {
           winner = await Winner.create({
-            userId: item.userId,
+            userId: targetUserId,
             type,
             rank: item.rank,
             prizeAmount: item.prizeAmount,
@@ -440,7 +443,7 @@ const distributeRewards = async (req, res, next) => {
 
         // Add to RewardHistory
         await RewardHistory.create({
-          userId: item.userId,
+          userId: targetUserId,
           rewardType: type === 'daily' ? 'daily_winner' : 'monthly_winner',
           amount: item.prizeAmount,
           description: `${type.charAt(0).toUpperCase() + type.slice(1)} winner — rank ${item.rank}`,
@@ -452,12 +455,12 @@ const distributeRewards = async (req, res, next) => {
         const notification = await Notification.create({
           title: '🎉 Amazon Voucher Delivered!',
           description: message,
-          targetUser: [item.userId],
+          targetUser: [targetUserId],
         });
 
         try {
           await sendPushToUser(
-            item.userId,
+            targetUserId,
             '🎉 Amazon Voucher Delivered!',
             message,
             {
@@ -465,7 +468,7 @@ const distributeRewards = async (req, res, next) => {
             }
           );
         } catch (err) {
-          console.error(`Failed to send push notification to user ${item.userId}:`, err.message);
+          console.error(`Failed to send push notification to user ${targetUserId}:`, err.message);
         }
 
         updatedWinners.push(winner);

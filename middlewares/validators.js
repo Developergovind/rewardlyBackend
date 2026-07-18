@@ -40,6 +40,7 @@ const settingsValidation = [
   body('Homepageplaygameadstype').optional().isIn(['interstitial', 'rewarded']),
   body('homepagetestpracticetype').optional().isIn(['interstitial', 'rewarded']),
   body('instagramLink').optional().isString().trim(),
+  body('playGameTime').optional().isInt({ min: 1 }).withMessage('Must be a positive integer'),
 ];
 
 const notificationValidation = [
@@ -96,6 +97,10 @@ const adminLeaderboardValidation = [
   query('type').optional().isIn(['today', 'monthly']).withMessage('Type must be today or monthly'),
 ];
 
+const redeemCodeValidation = [
+  body('code').notEmpty().withMessage('Redeem code is required').isString().trim(),
+];
+
 module.exports = {
   googleSignInValidation,
   adminLoginValidation,
@@ -110,4 +115,5 @@ module.exports = {
   updateUserPointsValidation,
   notifyUserWinValidation,
   adminLeaderboardValidation,
+  redeemCodeValidation,
 };

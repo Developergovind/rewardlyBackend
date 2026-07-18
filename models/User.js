@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema(
     deviceModal: { type: String, default: null },
     deviceUniquCode: { type: String, default: null },
     alert: { type: Boolean, default: true },
+    redeemCodeUsed: { type: Boolean, default: false },
+    userType: { type: String, default: 'user' },
   },
   { timestamps: true }
 );
