@@ -413,6 +413,71 @@
           },
           "response": []
         }
+        ,
+        {
+          "name": "Redeem Code (v1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"REWARDLY-XXXX\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/redeem",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "redeem"]
+            },
+            "description": "Redeem a voucher or referral code. Uses same controller as `/user/redeemcode` — kept for compatibility."
+          },
+          "response": []
+        },
+        {
+          "name": "Redeem Code (legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"REWARDLY-XXXX\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/redeemcode",
+              "host": ["{{baseUrl}}"],
+              "path": ["user", "redeemcode"]
+            },
+            "description": "Legacy redeem endpoint kept for older clients — maps to the same backend handler as `/user/redeem`."
+          },
+          "response": []
+        }
       ],
       "description": "User-facing endpoints. All require `Authorization: Bearer {{token}}`."
     },
